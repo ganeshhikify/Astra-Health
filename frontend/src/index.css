@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #000000;
+  color: #ffffff;
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+  user-select: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* Glowing text effects */
+.glow-text-cyan {
+  text-shadow: 0 0 20px rgba(0, 163, 255, 0.4), 0 0 40px rgba(0, 163, 255, 0.2);
+}
+
+.glow-box-cyan {
+  box-shadow: 0 0 25px rgba(0, 163, 255, 0.4), inset 0 0 15px rgba(0, 163, 255, 0.2);
+}
+
+.glow-btn-cyan {
+  box-shadow: 0 0 20px rgba(0, 163, 255, 0.35), 0 4px 14px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glow-btn-cyan:hover {
+  box-shadow: 0 0 35px rgba(0, 180, 255, 0.6), 0 0 15px rgba(0, 180, 255, 0.8), 0 6px 20px rgba(0, 0, 0, 0.6);
+  transform: translateY(-2px);
+}
