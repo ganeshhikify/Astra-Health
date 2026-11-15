@@ -30,7 +30,7 @@ secrets.json
 # Allow .env.example with placeholder templates
 !.env.example
 
-# Python Backend & Virtual Environments (Future development)
+# Python Backend & Virtual Environments
 venv/
 .venv/
 env/
@@ -42,6 +42,21 @@ __pycache__/
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+
+# Machine Learning Datasets & Model Artifacts (Raw datasets excluded)
+ml/datasets/*
+!ml/datasets/.gitkeep
+
+# Exclude arbitrary model binaries by default, except our verified lightweight artifacts
+ml/saved_models/*
+!ml/saved_models/.gitkeep
+!ml/saved_models/feature_config.json
+!ml/saved_models/isolation_forest_model.joblib
+!ml/saved_models/preprocessor_scaler.joblib
+
+*.joblib
+*.pkl
+!ml/saved_models/*.joblib
 
 # Logs & Debugging
 *.log

@@ -1,0 +1,67 @@
+{
+  "model_file": "isolation_forest_model.joblib",
+  "holdout_test_summary": {
+    "run": {
+      "total_observations": 12,
+      "inliers_count": 12,
+      "inliers_pct": 100.0,
+      "outliers_count": 0,
+      "outliers_pct": 0.0,
+      "mean_decision_score": 0.1198
+    },
+    "sit": {
+      "total_observations": 12,
+      "inliers_count": 12,
+      "inliers_pct": 100.0,
+      "outliers_count": 0,
+      "outliers_pct": 0.0,
+      "mean_decision_score": 0.1256
+    },
+    "walk": {
+      "total_observations": 12,
+      "inliers_count": 12,
+      "inliers_pct": 100.0,
+      "outliers_count": 0,
+      "outliers_pct": 0.0,
+      "mean_decision_score": 0.1094
+    }
+  },
+  "boundary_scenario_tests": [
+    {
+      "scenario": "Normative Rest Baseline",
+      "expected": "Inlier",
+      "predicted": "Inlier (Nominal)",
+      "decision_score": 0.1744,
+      "verified": true
+    },
+    {
+      "scenario": "Acute Hypoxia with Tachycardia",
+      "expected": "Anomaly",
+      "predicted": "Outlier (Anomaly)",
+      "decision_score": -0.0236,
+      "verified": true
+    },
+    {
+      "scenario": "Extreme Resting Tachycardia",
+      "expected": "Anomaly",
+      "predicted": "Outlier (Anomaly)",
+      "decision_score": -0.0505,
+      "verified": true
+    },
+    {
+      "scenario": "Hypertensive Crisis",
+      "expected": "Anomaly",
+      "predicted": "Outlier (Anomaly)",
+      "decision_score": -0.0711,
+      "verified": true
+    },
+    {
+      "scenario": "Severe Bradycardia + Hypotension",
+      "expected": "Anomaly",
+      "predicted": "Outlier (Anomaly)",
+      "decision_score": -0.0478,
+      "verified": true
+    }
+  ],
+  "evaluation_notes": "Model is an unsupervised Isolation Forest trained on resting baseline physiology. No ground-truth disease labels exist in the PhysioNet dataset; clinical diagnostic metrics (accuracy, sensitivity, specificity) cannot be claimed without external gold-standard clinical cohorts."
+}
