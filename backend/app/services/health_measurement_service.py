@@ -74,3 +74,27 @@ class HealthMeasurementService:
         db.commit()
         db.refresh(measurement)
         return measurement
+
+    @staticmethod
+    def create_batch(db: Session, items: List[HealthMeasurementCreate]) -> List[HealthMeasurement]:
+        if not items:
+            return []
+        records = [
+            HealthMeasurement(
+                astronaut_id=data.astronaut_id,
+                measured_at=data.measured_at,
+                heart_rate_bpm=data.heart_rate_bpm,
+                blood_oxygen_pct=data.blood_oxygen_pct,
+                body_temperature_celsius=data.body_temperature_celsius,
+                systolic_bp_mmhg=data.systolic_bp_mmhg,
+                diastolic_bp_mmhg=data.diastolic_bp_mmhg,
+                source=data.source,
+                is_simulated=data.is_simulated,
+            )
+            for data in items
+        ]
+        db.add_all(records)
+        db.commit()
+        for r in records:
+            db.refresh(r)
+        return records

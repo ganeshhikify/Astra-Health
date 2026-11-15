@@ -13,7 +13,9 @@ import {
   ChevronRight,
   ArrowLeft,
   Menu,
-  X
+  X,
+  ClipboardEdit,
+  FileUp
 } from 'lucide-react';
 import { DashboardStarfield } from '../components/DashboardStarfield';
 
@@ -23,7 +25,9 @@ export type DashboardRoute =
   | 'ai-insights'
   | 'analytics'
   | 'wellness'
-  | 'reports';
+  | 'reports'
+  | 'manual-entry'
+  | 'report-upload';
 
 interface DashboardLayoutProps {
   currentRoute: DashboardRoute;
@@ -67,6 +71,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     { id: 'analytics', label: 'Health Analytics', icon: LineChartIcon },
     { id: 'wellness', label: 'Daily Wellness', icon: CalendarCheck },
     { id: 'reports', label: 'Health Reports', icon: FileText }
+  ];
+
+  const sensorFreeNavItems: { id: DashboardRoute; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: 'manual-entry', label: 'Manual Health Entry', icon: ClipboardEdit },
+    { id: 'report-upload', label: 'Health Report Upload', icon: FileUp }
   ];
 
   const handleNavClick = (id: DashboardRoute) => {
@@ -170,6 +179,33 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </div>
 
               {navItems.map(item => {
+                const Icon = item.icon;
+                const isActive = currentRoute === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavClick(item.id)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                      isActive
+                        ? 'bg-[#161616] text-[#36C9E8] border border-[#36C9E8]/40 shadow-sm'
+                        : 'text-[#A3A3A3] hover:bg-[#111111] hover:text-white'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="font-semibold">{item.label}</span>
+                    {isActive && (
+                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#36C9E8]" />
+                    )}
+                  </button>
+                );
+              })}
+
+              {/* Sensor-Free Input Section */}
+              <div className="pt-3 px-3 py-1.5 text-[10px] font-orbitron font-semibold tracking-wider text-[#A3A3A3] uppercase">
+                Sensor-Free Input
+              </div>
+
+              {sensorFreeNavItems.map(item => {
                 const Icon = item.icon;
                 const isActive = currentRoute === item.id;
                 return (

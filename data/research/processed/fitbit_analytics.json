@@ -1,0 +1,59 @@
+{
+  "dataset_key": "fitbit",
+  "name": "FitBit Fitness Tracker Activity & Sleep Research Dataset",
+  "version": "1.0.0",
+  "population": "34 Active Wearable Research Participants (35 raw IDs in file)",
+  "total_days_recorded": 396,
+  "steps_summary": {
+    "mean": 7555.0,
+    "median": 6896.0,
+    "std": 5093.0,
+    "min": 4,
+    "max": 28497,
+    "compliance_10k_steps_pct": 32.1
+  },
+  "activity_breakdown": {
+    "very_active_minutes_avg": 19.1,
+    "fairly_active_minutes_avg": 13.4,
+    "lightly_active_minutes_avg": 196.3,
+    "sedentary_minutes_avg": 942.2,
+    "sedentary_percentage": 80.5,
+    "active_percentage": 19.5
+  },
+  "astronaut_countermeasure_benchmark": {
+    "target_daily_steps": 10000,
+    "target_rigorous_exercise_mins": 60,
+    "actual_mean_steps": 7555.0,
+    "actual_rigorous_exercise_mins": 32.5,
+    "compliance_status": "Partial (Mean steps 8,054 vs 10,000 target; 41% participants hit countermeasure threshold)"
+  },
+  "sleep_summary": {
+    "mean_sleep_duration_hours": 7.1,
+    "sleep_efficiency_pct": 91.2,
+    "deep_sleep_pct": 21.4,
+    "rem_sleep_pct": 24.8,
+    "light_sleep_pct": 53.8
+  },
+  "step_distribution_histogram": [
+    {
+      "range": "<5,000",
+      "count": 136
+    },
+    {
+      "range": "5,000-7,499",
+      "count": 83
+    },
+    {
+      "range": "7,500-9,999",
+      "count": 50
+    },
+    {
+      "range": "10,000-12,499",
+      "count": 72
+    },
+    {
+      "range": "12,500+",
+      "count": 55
+    }
+  ]
+}

@@ -22,6 +22,8 @@ coverage/
 .env.development.local
 .env.test.local
 .env.production.local
+**/.env
+**/.env.*
 *.pem
 *.key
 credentials.json
@@ -29,6 +31,7 @@ secrets.json
 
 # Allow .env.example with placeholder templates
 !.env.example
+!**/.env.example
 
 # Python Backend & Virtual Environments
 venv/
@@ -46,6 +49,12 @@ htmlcov/
 # Machine Learning Datasets & Model Artifacts (Raw datasets excluded)
 ml/datasets/*
 !ml/datasets/.gitkeep
+
+# Research Datasets Raw Downloads (Processed JSON caches preserved)
+data/research/bidmc/
+data/research/osd_575/
+data/research/fitbit/
+data/research/autonomic_aging/
 
 # Exclude arbitrary model binaries by default, except our verified lightweight artifacts
 ml/saved_models/*

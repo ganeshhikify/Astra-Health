@@ -1,0 +1,151 @@
+{
+  "dataset_key": "osd_575",
+  "name": "NASA Inspiration4 Commercial Astronaut Biomedical Study (OSD-575)",
+  "version": "1.0",
+  "population": "4 Civilian Astronauts (Inspiration4 Orbital Mission, Crew Dragon)",
+  "subjects": [
+    "C001",
+    "C002",
+    "C003",
+    "C004"
+  ],
+  "flight_duration_days": 3,
+  "orbit_apogee_km": 585,
+  "biomarker_trends": [
+    {
+      "marker": "AST (Aspartate Transaminase)",
+      "category": "Hepatic / Stress",
+      "unit": "U/L",
+      "pre_flight_baseline": 26.75,
+      "immediate_post_flight_r1": 26.25,
+      "post_flight_recovery_r82": 19.25,
+      "acute_delta_pct": -1.9,
+      "recovery_delta_pct": -28.0,
+      "stress_response": "Stable (Within Clinical Limits)"
+    },
+    {
+      "marker": "ALT (Alanine Transaminase)",
+      "category": "Hepatic / Cellular Stress",
+      "unit": "U/L",
+      "pre_flight_baseline": 20.5,
+      "immediate_post_flight_r1": 21.0,
+      "post_flight_recovery_r82": 16.75,
+      "acute_delta_pct": 2.4,
+      "recovery_delta_pct": -18.3,
+      "stress_response": "Stable (Within Clinical Limits)"
+    },
+    {
+      "marker": "Creatinine (Renal Clearance)",
+      "category": "Renal & Fluid Shift",
+      "unit": "mg/dL",
+      "pre_flight_baseline": 1.14,
+      "immediate_post_flight_r1": 1.03,
+      "post_flight_recovery_r82": 1.02,
+      "acute_delta_pct": -9.5,
+      "recovery_delta_pct": -10.4,
+      "stress_response": "Stable (Within Clinical Limits)"
+    },
+    {
+      "marker": "Serum Glucose",
+      "category": "Metabolic Energy",
+      "unit": "mg/dL",
+      "pre_flight_baseline": 69.5,
+      "immediate_post_flight_r1": 93.25,
+      "post_flight_recovery_r82": 82.0,
+      "acute_delta_pct": 34.2,
+      "recovery_delta_pct": 18.0,
+      "stress_response": "Elevated Post-Flight (+34.2% Launch Eve L-3 baseline; +29.7% pooled L-3/L-44)"
+    },
+    {
+      "marker": "Potassium",
+      "category": "Electrolyte Balance",
+      "unit": "mmol/L",
+      "pre_flight_baseline": 3.67,
+      "immediate_post_flight_r1": 3.73,
+      "post_flight_recovery_r82": 3.97,
+      "acute_delta_pct": 1.4,
+      "recovery_delta_pct": 8.2,
+      "stress_response": "Stable (Within Clinical Limits)"
+    },
+    {
+      "marker": "Total Serum Protein",
+      "category": "Plasma Volume Shift",
+      "unit": "g/dL",
+      "pre_flight_baseline": 7.12,
+      "immediate_post_flight_r1": 7.35,
+      "post_flight_recovery_r82": 7.5,
+      "acute_delta_pct": 3.2,
+      "recovery_delta_pct": 5.3,
+      "stress_response": "Stable (Within Clinical Limits)"
+    },
+    {
+      "marker": "Serum Calcium",
+      "category": "Bone Resorption Marker",
+      "unit": "mg/dL",
+      "pre_flight_baseline": 9.65,
+      "immediate_post_flight_r1": 9.52,
+      "post_flight_recovery_r82": 9.95,
+      "acute_delta_pct": -1.3,
+      "recovery_delta_pct": 3.1,
+      "stress_response": "Stable (Within Clinical Limits)"
+    }
+  ],
+  "timeline": [
+    {
+      "timepoint": "L-92",
+      "label": "Pre-Flight 92d",
+      "ast": 21.25,
+      "creatinine": 1.05,
+      "glucose": 82.25,
+      "calcium": 9.8
+    },
+    {
+      "timepoint": "L-44",
+      "label": "Pre-Flight 44d",
+      "ast": 27.5,
+      "creatinine": 1.02,
+      "glucose": 74.25,
+      "calcium": 10.03
+    },
+    {
+      "timepoint": "L-3",
+      "label": "Pre-Flight 3d (Launch Eve)",
+      "ast": 26.75,
+      "creatinine": 1.14,
+      "glucose": 69.5,
+      "calcium": 9.65
+    },
+    {
+      "timepoint": "R+1",
+      "label": "Splashdown + 24h",
+      "ast": 26.25,
+      "creatinine": 1.03,
+      "glucose": 93.25,
+      "calcium": 9.52
+    },
+    {
+      "timepoint": "R+45",
+      "label": "Recovery + 45d",
+      "ast": 20.5,
+      "creatinine": 1.04,
+      "glucose": 51.75,
+      "calcium": 9.57
+    },
+    {
+      "timepoint": "R+82",
+      "label": "Recovery + 82d",
+      "ast": 19.25,
+      "creatinine": 1.02,
+      "glucose": 82.0,
+      "calcium": 9.95
+    },
+    {
+      "timepoint": "R+194",
+      "label": "Follow-Up + 194d",
+      "ast": 22.25,
+      "creatinine": 1.18,
+      "glucose": 82.0,
+      "calcium": 9.57
+    }
+  ]
+}

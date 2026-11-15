@@ -16,12 +16,14 @@ import {
   Globe2,
   FileCheck,
   Eye,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
+import { astronautsApi, missionsApi } from '../api';
 
 interface MissionSetupPageProps {
   onBackToLanding: () => void;
-  onProceedToAssessment?: (formData: MissionFormData) => void;
+  onProceedToAssessment?: (formData: MissionFormData, references?: { astronautId: string; missionId: string }) => void;
   onProceedToDashboard?: () => void;
 }
 
@@ -105,6 +107,74 @@ export const MissionSetupPage: React.FC<MissionSetupPageProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showAssessmentModal, setShowAssessmentModal] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [savedAstronautId, setSavedAstronautId] = useState<string | null>(() => {
+    try {
+      const cached = localStorage.getItem('astra_saved_references');
+      return cached ? JSON.parse(cached).astronautId : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [savedMissionId, setSavedMissionId] = useState<string | null>(() => {
+    try {
+      const cached = localStorage.getItem('astra_saved_references');
+      return cached ? JSON.parse(cached).missionId : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // On mount: load existing saved record from PostgreSQL backend if available
+  useEffect(() => {
+    let isMounted = true;
+    const fetchExistingBackendState = async () => {
+      try {
+        let astro = null;
+        if (savedAstronautId) {
+          try {
+            astro = await astronautsApi.getById(savedAstronautId);
+          } catch {
+            // ID might be outdated or from another session
+          }
+        }
+
+        if (!astro && formData.crewId) {
+          astro = await astronautsApi.findByCrewId(formData.crewId);
+        }
+
+        if (astro && isMounted) {
+          setSavedAstronautId(astro.id);
+          const mission = await missionsApi.findByAstronautId(astro.id);
+          if (mission && isMounted) {
+            setSavedMissionId(mission.id);
+            setFormData(prev => ({
+              ...prev,
+              astronautName: astro.name || prev.astronautName,
+              crewId: astro.crew_id || prev.crewId,
+              astronautRole: astro.role || prev.astronautRole,
+              missionName: mission.name || prev.missionName,
+              destination: (mission.destination as 'ISS' | 'MOON' | 'MARS') || prev.destination,
+              missionDuration: mission.duration || prev.missionDuration,
+              launchDate: mission.launch_date || prev.launchDate,
+              missionEnvironment: mission.environment || prev.missionEnvironment,
+            }));
+            localStorage.setItem('astra_saved_references', JSON.stringify({
+              astronautId: astro.id,
+              missionId: mission.id,
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('Backend draft synchronization check offline or unreachable:', err);
+      }
+    };
+
+    fetchExistingBackendState();
+    return () => { isMounted = false; };
+  }, []);
 
   // Auto-clear toast
   useEffect(() => {
@@ -156,15 +226,6 @@ export const MissionSetupPage: React.FC<MissionSetupPageProps> = ({
     }));
   };
 
-  const handleSaveDraft = () => {
-    try {
-      localStorage.setItem('astra_mission_setup_draft', JSON.stringify(formData));
-      setToastMessage('Draft Saved Successfully • Local Configuration Cached');
-    } catch {
-      setToastMessage('Error saving draft to local storage');
-    }
-  };
-
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof MissionFormData, string>> = {};
 
@@ -188,17 +249,145 @@ export const MissionSetupPage: React.FC<MissionSetupPageProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleContinue = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (validateForm()) {
-      handleSaveDraft();
-      if (onProceedToAssessment) {
-        onProceedToAssessment(formData);
-      } else {
-        setShowAssessmentModal(true);
+  /**
+   * Persists astronaut operative profile and aerospace mission assignment to PostgreSQL.
+   */
+  const persistToBackend = async (): Promise<{ astronautId: string; missionId: string }> => {
+    // 1. Astronaut Profile Upsert
+    let astroId = savedAstronautId;
+    let astro = null;
+
+    if (astroId) {
+      try {
+        astro = await astronautsApi.update(astroId, {
+          name: formData.astronautName.trim(),
+          crew_id: formData.crewId.trim(),
+          role: formData.astronautRole.trim(),
+          is_active: true,
+        });
+      } catch {
+        astroId = null;
       }
-    } else {
+    }
+
+    if (!astroId) {
+      const existing = await astronautsApi.findByCrewId(formData.crewId.trim());
+      if (existing) {
+        astro = await astronautsApi.update(existing.id, {
+          name: formData.astronautName.trim(),
+          role: formData.astronautRole.trim(),
+          is_active: true,
+        });
+        astroId = existing.id;
+      } else {
+        astro = await astronautsApi.create({
+          name: formData.astronautName.trim(),
+          crew_id: formData.crewId.trim(),
+          role: formData.astronautRole.trim(),
+          is_active: true,
+          notes: 'Mission Setup Operative Profile',
+        });
+        astroId = astro.id;
+      }
+    }
+
+    setSavedAstronautId(astroId);
+
+    // 2. Mission Profile Upsert
+    let mId = savedMissionId;
+    let mission = null;
+
+    if (mId) {
+      try {
+        mission = await missionsApi.update(mId, {
+          name: formData.missionName.trim(),
+          destination: formData.destination,
+          duration: formData.missionDuration.trim(),
+          launch_date: formData.launchDate,
+          environment: formData.missionEnvironment.trim(),
+          astronaut_id: astroId,
+        });
+      } catch {
+        mId = null;
+      }
+    }
+
+    if (!mId) {
+      const existingMission = await missionsApi.findByAstronautId(astroId);
+      if (existingMission) {
+        mission = await missionsApi.update(existingMission.id, {
+          name: formData.missionName.trim(),
+          destination: formData.destination,
+          duration: formData.missionDuration.trim(),
+          launch_date: formData.launchDate,
+          environment: formData.missionEnvironment.trim(),
+          astronaut_id: astroId,
+        });
+        mId = existingMission.id;
+      } else {
+        mission = await missionsApi.create({
+          name: formData.missionName.trim(),
+          destination: formData.destination,
+          duration: formData.missionDuration.trim(),
+          launch_date: formData.launchDate,
+          environment: formData.missionEnvironment.trim(),
+          astronaut_id: astroId,
+        });
+        mId = mission.id;
+      }
+    }
+
+    setSavedMissionId(mId);
+
+    // Synchronize to browser local cache
+    const refs = { astronautId: astroId, missionId: mId };
+    localStorage.setItem('astra_saved_references', JSON.stringify(refs));
+    localStorage.setItem('astra_mission_setup_draft', JSON.stringify(formData));
+
+    return refs;
+  };
+
+  const handleSaveDraft = async () => {
+    if (!validateForm()) {
+      setToastMessage('Please complete all required fields before saving.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await persistToBackend();
+      setToastMessage('Draft Saved & Synchronized with PostgreSQL Mission Archive');
+    } catch (err: any) {
+      localStorage.setItem('astra_mission_setup_draft', JSON.stringify(formData));
+      setToastMessage(`Draft Cached Locally • (${err.message || 'Offline mode'})`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleContinue = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!validateForm()) {
       setToastMessage('Please complete all required fields.');
+      return;
+    }
+
+    setIsSaving(true);
+    let refs = { astronautId: savedAstronautId || '', missionId: savedMissionId || '' };
+    try {
+      refs = await persistToBackend();
+      setToastMessage('Mission profile validated & synchronized with PostgreSQL.');
+    } catch (err: any) {
+      console.warn('Backend synchronization warning:', err);
+      localStorage.setItem('astra_mission_setup_draft', JSON.stringify(formData));
+    } finally {
+      setIsSaving(false);
+    }
+
+    if (onProceedToAssessment) {
+      onProceedToAssessment(formData, refs);
+    } else {
+      setShowAssessmentModal(true);
     }
   };
 
@@ -687,19 +876,34 @@ export const MissionSetupPage: React.FC<MissionSetupPageProps> = ({
               <button
                 type="button"
                 onClick={handleSaveDraft}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-lg border border-[#252525] bg-[#161616] hover:bg-[#202020] hover:border-slate-400 text-slate-200 font-space text-sm font-semibold tracking-wider uppercase transition-all duration-200 shadow-sm"
+                disabled={isSaving}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-lg border border-[#252525] bg-[#161616] hover:bg-[#202020] hover:border-slate-400 text-slate-200 font-space text-sm font-semibold tracking-wider uppercase transition-all duration-200 shadow-sm disabled:opacity-60 cursor-pointer"
               >
-                <Save className="w-4 h-4 text-slate-400" />
-                <span>SAVE DRAFT</span>
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 text-slate-400" />
+                )}
+                <span>{isSaving ? 'PERSISTING...' : 'SAVE DRAFT'}</span>
               </button>
 
               {/* Continue to Health Assessment */}
               <button
                 type="submit"
-                className="w-full sm:flex-1 inline-flex items-center justify-center gap-3 px-8 py-3.5 rounded-lg bg-[#0080ff] hover:bg-[#0094ff] text-white font-space font-semibold text-sm tracking-wider uppercase shadow-[0_0_20px_rgba(0,128,255,0.4)] hover:shadow-[0_0_30px_rgba(0,160,255,0.65)] transition-all duration-200"
+                disabled={isSaving}
+                className="w-full sm:flex-1 inline-flex items-center justify-center gap-3 px-8 py-3.5 rounded-lg bg-[#0080ff] hover:bg-[#0094ff] text-white font-space font-semibold text-sm tracking-wider uppercase shadow-[0_0_20px_rgba(0,128,255,0.4)] hover:shadow-[0_0_30px_rgba(0,160,255,0.65)] transition-all duration-200 disabled:opacity-60 cursor-pointer"
               >
-                <span>CONTINUE TO HEALTH ASSESSMENT</span>
-                <ArrowRight className="w-4 h-4" />
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 text-white animate-spin" />
+                    <span>SAVING &amp; PREPARING...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>CONTINUE TO HEALTH ASSESSMENT</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
 
             </div>
@@ -1003,11 +1207,18 @@ export const MissionSetupPage: React.FC<MissionSetupPageProps> = ({
                   type="button"
                   onClick={() => {
                     setShowAssessmentModal(false);
-                    if (onProceedToDashboard) onProceedToDashboard();
+                    if (onProceedToAssessment) {
+                      onProceedToAssessment(formData, {
+                        astronautId: savedAstronautId || '',
+                        missionId: savedMissionId || '',
+                      });
+                    } else if (onProceedToDashboard) {
+                      onProceedToDashboard();
+                    }
                   }}
                   className="flex-1 py-3 rounded-lg bg-[#0080ff] hover:bg-[#0094ff] text-white font-space text-xs font-semibold tracking-wider uppercase transition-colors flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(0,128,255,0.4)]"
                 >
-                  <span>ENTER HEALTH DASHBOARD</span>
+                  <span>CONTINUE TO HEALTH ASSESSMENT</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>

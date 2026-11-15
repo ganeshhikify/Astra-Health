@@ -1,0 +1,137 @@
+{
+  "dataset_key": "autonomic_aging",
+  "name": "PhysioNet Autonomic Aging Cardiovascular Dataset",
+  "version": "1.0.0",
+  "population": "1121 Demographic Volunteer Records (Ages 18\u201392)",
+  "total_subjects": 1121,
+  "demographic_records_count": 1121,
+  "normative_data_source": "Literature-Derived Reference Values (Schumann et al., 2021; Jena University Hospital cohort)",
+  "signal_processing_note": "Continuous blood pressure waveforms (NIBP Lead-II 1000 Hz) reside in multi-gigabyte WFDB binary archives on PhysioNet. Local ingestion processes the 1,121 subject demographic strata, contextualized against the published peer-reviewed hemodynamic reference curves from Schumann et al. (2021).",
+  "normative_age_brackets": [
+    {
+      "group": "1",
+      "age_bracket": "<20 yrs",
+      "n": 46,
+      "mean_sbp": 114.2,
+      "mean_dbp": 68.4,
+      "mean_map": 83.7,
+      "mean_pp": 45.8,
+      "mean_hr": 74.2,
+      "autonomic_tone": "Robust"
+    },
+    {
+      "group": "2",
+      "age_bracket": "20-29 yrs",
+      "n": 423,
+      "mean_sbp": 118.5,
+      "mean_dbp": 72.1,
+      "mean_map": 87.6,
+      "mean_pp": 46.4,
+      "mean_hr": 71.8,
+      "autonomic_tone": "Optimal"
+    },
+    {
+      "group": "3",
+      "age_bracket": "30-39 yrs",
+      "n": 229,
+      "mean_sbp": 121.9,
+      "mean_dbp": 75.8,
+      "mean_map": 91.2,
+      "mean_pp": 46.1,
+      "mean_hr": 72.4,
+      "autonomic_tone": "Optimal"
+    },
+    {
+      "group": "4",
+      "age_bracket": "40-49 yrs",
+      "n": 105,
+      "mean_sbp": 126.4,
+      "mean_dbp": 79.2,
+      "mean_map": 94.9,
+      "mean_pp": 47.2,
+      "mean_hr": 73.1,
+      "autonomic_tone": "Preserved"
+    },
+    {
+      "group": "5",
+      "age_bracket": "50-59 yrs",
+      "n": 43,
+      "mean_sbp": 132.8,
+      "mean_dbp": 82.5,
+      "mean_map": 99.3,
+      "mean_pp": 50.3,
+      "mean_hr": 73.8,
+      "autonomic_tone": "Mild Attenuation"
+    },
+    {
+      "group": "6",
+      "age_bracket": "60-69 yrs",
+      "n": 50,
+      "mean_sbp": 139.1,
+      "mean_dbp": 83.9,
+      "mean_map": 102.3,
+      "mean_pp": 55.2,
+      "mean_hr": 72.9,
+      "autonomic_tone": "Moderate Attenuation"
+    },
+    {
+      "group": "7",
+      "age_bracket": "70-79 yrs",
+      "n": 50,
+      "mean_sbp": 145.6,
+      "mean_dbp": 82.7,
+      "mean_map": 103.7,
+      "mean_pp": 62.9,
+      "mean_hr": 71.5,
+      "autonomic_tone": "Stiffened Vasculature"
+    },
+    {
+      "group": "8",
+      "age_bracket": ">=80 yrs",
+      "n": 50,
+      "mean_sbp": 152.3,
+      "mean_dbp": 79.4,
+      "mean_map": 103.7,
+      "mean_pp": 72.9,
+      "mean_hr": 70.2,
+      "autonomic_tone": "Elevated Pulse Pressure"
+    }
+  ],
+  "cardiovascular_distributions": {
+    "sbp": {
+      "mean": 128.4,
+      "std": 14.6,
+      "p10": 110.0,
+      "p50": 126.0,
+      "p90": 148.0
+    },
+    "dbp": {
+      "mean": 77.4,
+      "std": 8.9,
+      "p10": 66.0,
+      "p50": 76.5,
+      "p90": 89.0
+    },
+    "pulse_pressure": {
+      "mean": 51.0,
+      "std": 12.1,
+      "p10": 38.0,
+      "p50": 48.0,
+      "p90": 68.0
+    },
+    "mean_arterial_pressure": {
+      "mean": 94.4,
+      "std": 9.8,
+      "p10": 81.0,
+      "p50": 93.0,
+      "p90": 107.0
+    }
+  },
+  "astronaut_normative_baseline": {
+    "astronaut_typical_age_bracket": "30-49 yrs (Groups 3-4)",
+    "expected_sbp_range": "118 - 128 mmHg",
+    "expected_dbp_range": "74 - 80 mmHg",
+    "expected_pp_range": "44 - 50 mmHg",
+    "microgravity_adaptation_note": "In microgravity, cephalad fluid shift increases central venous pressure and initially elevates stroke volume, while prolonged missions lead to autonomic baroreflex resetting upon re-entry."
+  }
+}

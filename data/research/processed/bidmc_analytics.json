@@ -1,0 +1,274 @@
+{
+  "dataset_key": "bidmc",
+  "name": "PhysioNet BIDMC PPG and Respiration Dataset",
+  "version": "1.0.0",
+  "population": "53 Adult Intensive Care Unit (ICU) Patients",
+  "total_subjects": 53,
+  "total_timepoints_analyzed": 25365,
+  "vital_distributions": {
+    "heart_rate": {
+      "unit": "BPM",
+      "mean": 89.2,
+      "median": 89.0,
+      "std": 13.3,
+      "min": 44.0,
+      "max": 139.0,
+      "p25": 81.0,
+      "p75": 95.0
+    },
+    "blood_oxygen": {
+      "unit": "%",
+      "mean": 96.7,
+      "median": 98.0,
+      "std": 3.3,
+      "min": 83.0,
+      "max": 100.0,
+      "p25": 95.0,
+      "p75": 99.0
+    },
+    "respiratory_rate": {
+      "unit": "breaths/min",
+      "mean": 17.7,
+      "median": 18.0,
+      "std": 3.0,
+      "min": 4.0,
+      "max": 34.0,
+      "p25": 16.0,
+      "p75": 19.0
+    }
+  },
+  "clinical_events": {
+    "hypoxemia_event_pct": 4.03,
+    "tachypnea_event_pct": 4.94,
+    "spo2_resp_correlation": -0.173,
+    "respiratory_stability_index": 78.4
+  },
+  "sample_subjects": [
+    {
+      "subject_id": "bidmc_01",
+      "sample_count": 481,
+      "mean_hr": 91.3,
+      "std_hr": 1.0,
+      "mean_spo2": 96.9,
+      "min_spo2": 96.0,
+      "mean_resp": 21.4,
+      "max_resp": 26.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 66
+    },
+    {
+      "subject_id": "bidmc_02",
+      "sample_count": 481,
+      "mean_hr": 91.1,
+      "std_hr": 1.4,
+      "mean_spo2": 100.0,
+      "min_spo2": 99.0,
+      "mean_resp": 15.4,
+      "max_resp": 19.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 0
+    },
+    {
+      "subject_id": "bidmc_03",
+      "sample_count": 481,
+      "mean_hr": 76.6,
+      "std_hr": 2.1,
+      "mean_spo2": 95.8,
+      "min_spo2": 95.0,
+      "mean_resp": 17.6,
+      "max_resp": 19.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 0
+    },
+    {
+      "subject_id": "bidmc_04",
+      "sample_count": 481,
+      "mean_hr": 92.4,
+      "std_hr": 3.1,
+      "mean_spo2": 93.0,
+      "min_spo2": 92.0,
+      "mean_resp": 16.7,
+      "max_resp": 19.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 0
+    },
+    {
+      "subject_id": "bidmc_05",
+      "sample_count": 481,
+      "mean_hr": 98.2,
+      "std_hr": 0.9,
+      "mean_spo2": 99.4,
+      "min_spo2": 96.0,
+      "mean_resp": 11.5,
+      "max_resp": 15.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 0
+    },
+    {
+      "subject_id": "bidmc_06",
+      "sample_count": 481,
+      "mean_hr": 81.8,
+      "std_hr": 1.2,
+      "mean_spo2": 99.0,
+      "min_spo2": 99.0,
+      "mean_resp": 19.9,
+      "max_resp": 21.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 0
+    },
+    {
+      "subject_id": "bidmc_07",
+      "sample_count": 481,
+      "mean_hr": 90.1,
+      "std_hr": 0.3,
+      "mean_spo2": 95.0,
+      "min_spo2": 94.0,
+      "mean_resp": 19.9,
+      "max_resp": 21.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 0
+    },
+    {
+      "subject_id": "bidmc_08",
+      "sample_count": 481,
+      "mean_hr": 99.9,
+      "std_hr": 0.7,
+      "mean_spo2": 93.0,
+      "min_spo2": 93.0,
+      "mean_resp": 21.1,
+      "max_resp": 23.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 5
+    },
+    {
+      "subject_id": "bidmc_09",
+      "sample_count": 481,
+      "mean_hr": 76.7,
+      "std_hr": 0.7,
+      "mean_spo2": 93.0,
+      "min_spo2": 93.0,
+      "mean_resp": 20.0,
+      "max_resp": 20.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 0
+    },
+    {
+      "subject_id": "bidmc_10",
+      "sample_count": 481,
+      "mean_hr": 82.1,
+      "std_hr": 1.9,
+      "mean_spo2": 98.0,
+      "min_spo2": 97.0,
+      "mean_resp": 18.4,
+      "max_resp": 22.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 0
+    },
+    {
+      "subject_id": "bidmc_11",
+      "sample_count": 481,
+      "mean_hr": 93.0,
+      "std_hr": 2.5,
+      "mean_spo2": 98.0,
+      "min_spo2": 96.0,
+      "mean_resp": 15.4,
+      "max_resp": 25.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 15
+    },
+    {
+      "subject_id": "bidmc_12",
+      "sample_count": 481,
+      "mean_hr": 93.0,
+      "std_hr": 2.7,
+      "mean_spo2": 96.0,
+      "min_spo2": 92.0,
+      "mean_resp": 19.0,
+      "max_resp": 21.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 0
+    },
+    {
+      "subject_id": "bidmc_13",
+      "sample_count": 481,
+      "mean_hr": 66.8,
+      "std_hr": 0.4,
+      "mean_spo2": 100.0,
+      "min_spo2": 99.0,
+      "mean_resp": 11.3,
+      "max_resp": 19.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 0
+    },
+    {
+      "subject_id": "bidmc_14",
+      "sample_count": 481,
+      "mean_hr": 95.1,
+      "std_hr": 0.8,
+      "mean_spo2": 98.7,
+      "min_spo2": 98.0,
+      "mean_resp": 19.5,
+      "max_resp": 34.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 101
+    },
+    {
+      "subject_id": "bidmc_15",
+      "sample_count": 481,
+      "mean_hr": 107.4,
+      "std_hr": 1.1,
+      "mean_spo2": 98.2,
+      "min_spo2": 98.0,
+      "mean_resp": 14.5,
+      "max_resp": 18.0,
+      "hypoxemia_events": 0,
+      "tachypnea_events": 0
+    }
+  ],
+  "histograms": {
+    "spo2": [
+      {
+        "range": "<90%",
+        "count": 964
+      },
+      {
+        "range": "90-92%",
+        "count": 699
+      },
+      {
+        "range": "93-95%",
+        "count": 5321
+      },
+      {
+        "range": "96-98%",
+        "count": 9926
+      },
+      {
+        "range": "99-100%",
+        "count": 8455
+      }
+    ],
+    "resp_rate": [
+      {
+        "range": "<12",
+        "count": 955
+      },
+      {
+        "range": "12-16",
+        "count": 7098
+      },
+      {
+        "range": "17-20",
+        "count": 13763
+      },
+      {
+        "range": "21-25",
+        "count": 3093
+      },
+      {
+        "range": ">25",
+        "count": 204
+      }
+    ]
+  }
+}

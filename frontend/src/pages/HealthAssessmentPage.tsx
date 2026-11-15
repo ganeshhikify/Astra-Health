@@ -16,19 +16,109 @@ import {
   Info,
   User,
   Moon,
-  Dumbbell
+  Dumbbell,
+  Loader2,
+  Database
 } from 'lucide-react';
+import {
+  astronautsApi,
+  missionsApi,
+  assessmentsApi,
+  measurementsApi,
+  HealthAssessmentResponse,
+} from '../api';
 
 interface HealthAssessmentPageProps {
   onBackToDashboard: () => void;
+  astronautId?: string;
+  missionId?: string;
 }
 
 export const HealthAssessmentPage: React.FC<HealthAssessmentPageProps> = ({
-  onBackToDashboard
+  onBackToDashboard,
+  astronautId: propAstronautId,
+  missionId: propMissionId,
 }) => {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [savedAssessmentRecord, setSavedAssessmentRecord] = useState<HealthAssessmentResponse | null>(null);
+
+  const [activeAstronautId, setActiveAstronautId] = useState<string | null>(() => {
+    if (propAstronautId) return propAstronautId;
+    try {
+      const cached = localStorage.getItem('astra_saved_references');
+      return cached ? JSON.parse(cached).astronautId : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // On mount: load active astronaut and mission from backend to ensure consistent state
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchAstronautContext = async () => {
+      try {
+        let astroId = activeAstronautId;
+        if (!astroId) {
+          const cached = localStorage.getItem('astra_saved_references');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            astroId = parsed.astronautId;
+          }
+        }
+
+        if (astroId) {
+          const astro = await astronautsApi.getById(astroId);
+          if (astro && isMounted) {
+            setActiveAstronautId(astro.id);
+            setFormData(prev => ({
+              ...prev,
+              astronautName: astro.name || prev.astronautName,
+              crewId: astro.crew_id || prev.crewId,
+              astronautRole: astro.role || prev.astronautRole,
+            }));
+          }
+        }
+
+        let mId = propMissionId;
+        if (!mId) {
+          const cached = localStorage.getItem('astra_saved_references');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            mId = parsed.missionId;
+          }
+        }
+
+        if (mId) {
+          try {
+            const mission = await missionsApi.getById(mId);
+            if (mission && isMounted) {
+              const zoneMap: Record<string, string> = {
+                ISS: 'ISS Harmony Node 2 / US Lab',
+                MOON: 'Habitat Core 1 (Lunar South Pole Basecamp)',
+                MARS: 'Ares Colony Prime (Martian Surface Habitat)',
+              };
+              if (zoneMap[mission.destination]) {
+                setFormData(prev => ({
+                  ...prev,
+                  habitatZone: zoneMap[mission.destination],
+                }));
+              }
+            }
+          } catch {
+            // Optional mission prefetch
+          }
+        }
+      } catch (err) {
+        console.warn('Unable to prefetch astronaut profile from backend:', err);
+      }
+    };
+
+    fetchAstronautContext();
+    return () => { isMounted = false; };
+  }, [activeAstronautId]);
 
   // Form State across all workflow steps
   const [formData, setFormData] = useState({
@@ -85,13 +175,131 @@ export const HealthAssessmentPage: React.FC<HealthAssessmentPageProps> = ({
     }
   };
 
-  const handleSubmitAssessment = (e: React.FormEvent) => {
+  const handleSubmitAssessment = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    setToastMessage('Assessment successfully synchronized with Mission Control (Simulated Telemetry Uplink).');
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4000);
+
+    // 1. Validate physiological numbers
+    const hr = parseFloat(formData.heartRate);
+    const spo2 = parseFloat(formData.bloodOxygen);
+    const temp = parseFloat(formData.temperature);
+    const sys = parseInt(formData.bpSystolic);
+    const dia = parseInt(formData.bpDiastolic);
+    const sleep = parseFloat(formData.sleepHours);
+
+    if (isNaN(hr) || hr < 30 || hr > 250) {
+      setToastMessage('Heart Rate must be between 30 and 250 BPM.');
+      return;
+    }
+    if (isNaN(spo2) || spo2 < 50 || spo2 > 100) {
+      setToastMessage('Blood Oxygen (SpO2) must be between 50% and 100%.');
+      return;
+    }
+    if (isNaN(temp) || temp < 30 || temp > 45) {
+      setToastMessage('Body Temperature must be between 30°C and 45°C.');
+      return;
+    }
+    if (isNaN(sys) || sys < 50 || sys > 260) {
+      setToastMessage('Systolic Blood Pressure must be between 50 and 260 mmHg.');
+      return;
+    }
+    if (isNaN(dia) || dia < 30 || dia > 160) {
+      setToastMessage('Diastolic Blood Pressure must be between 30 and 160 mmHg.');
+      return;
+    }
+    if (sys <= dia) {
+      setToastMessage('Systolic BP must be strictly greater than Diastolic BP.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 2. Resolve astronaut ID (foreign key constraint in PostgreSQL)
+      let astroId = activeAstronautId;
+      if (!astroId && formData.crewId) {
+        const found = await astronautsApi.findByCrewId(formData.crewId.trim());
+        if (found) {
+          astroId = found.id;
+        } else {
+          const newAstro = await astronautsApi.create({
+            name: formData.astronautName.trim(),
+            crew_id: formData.crewId.trim(),
+            role: formData.astronautRole.trim(),
+            is_active: true,
+            notes: 'Generated via Health Assessment initial submission',
+          });
+          astroId = newAstro.id;
+        }
+        setActiveAstronautId(astroId);
+      }
+
+      if (!astroId) {
+        throw new Error('Unable to resolve astronaut operative reference for foreign key constraint.');
+      }
+
+      // 3. Clinical Triage Evaluation Status
+      const hasSymptoms = formData.headache || formData.congestion || formData.fatigue || formData.backDiscomfort;
+      const isVitalsDeviated = hr > 100 || hr < 50 || spo2 < 95 || temp > 37.8 || sys >= 140 || dia >= 90;
+      const evaluatedStatus = isVitalsDeviated || hasSymptoms ? 'ATTENTION_REQUIRED' : 'OPTIMAL';
+
+      // 4. Submit Health Assessment Record to PostgreSQL
+      const assessmentData = await assessmentsApi.create({
+        astronaut_id: astroId,
+        assessment_date: new Date().toISOString(),
+        status: evaluatedStatus,
+        summary: JSON.stringify({
+          missionDay: formData.missionDay,
+          habitatZone: formData.habitatZone,
+          symptoms: {
+            headache: formData.headache,
+            congestion: formData.congestion,
+            fatigue: formData.fatigue,
+            backDiscomfort: formData.backDiscomfort,
+          },
+          sleepQuality: formData.sleepQuality,
+          sleepLatency: formData.sleepLatency,
+          aredDuration: formData.aredDuration,
+          aerobicDuration: formData.aerobicDuration,
+          smsSeverity: formData.smsSeverity,
+          vestibularRating: formData.vestibularRating,
+          sansVisionShift: formData.sansVisionShift,
+          cognitiveAlertness: formData.cognitiveAlertness,
+          workloadStress: formData.workloadStress,
+          astronautNotes: formData.astronautNotes,
+        }),
+        baseline_heart_rate: hr,
+        baseline_spo2: spo2,
+        baseline_temperature: temp,
+        baseline_blood_pressure: `${sys}/${dia}`,
+        sleep_hours: isNaN(sleep) ? null : sleep,
+        countermeasures_adherence: `ARED: ${formData.aredDuration}m | Aerobic: ${formData.aerobicDuration}m`,
+      });
+
+      // 5. Submit Primary Telemetry Measurement Event to PostgreSQL
+      try {
+        await measurementsApi.create({
+          astronaut_id: astroId,
+          measured_at: new Date().toISOString(),
+          heart_rate_bpm: hr,
+          blood_oxygen_pct: spo2,
+          body_temperature_celsius: temp,
+          systolic_bp_mmhg: sys,
+          diastolic_bp_mmhg: dia,
+          source: 'HEALTH_ASSESSMENT_PORTAL',
+          is_simulated: false,
+        });
+      } catch (measErr) {
+        console.warn('Telemetry event secondary logging warning:', measErr);
+      }
+
+      setSavedAssessmentRecord(assessmentData);
+      setSubmitted(true);
+      setToastMessage('Assessment successfully synchronized with PostgreSQL Mission Archive.');
+    } catch (err: any) {
+      console.error('Assessment submission error:', err);
+      setToastMessage(`Submission Failed: ${err.message || 'Server communication error'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -1015,7 +1223,7 @@ export const HealthAssessmentPage: React.FC<HealthAssessmentPageProps> = ({
               <div className="p-3.5 rounded-xl bg-[#141414] border border-[#252525] flex items-start gap-3 text-xs text-[#A3A3A3]">
                 <ShieldCheck className="w-4 h-4 text-[#36C9E8] shrink-0 mt-0.5" />
                 <p className="font-normal" style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 400 }}>
-                  <strong className="text-white font-semibold">Autonomous Certification:</strong> Assessment verified for mission logging. Flight Surgeon Review: <span className="text-slate-200">Dr. Gregory Vance, MD (NASA JSC)</span>.
+                  <strong className="text-white font-semibold">Autonomous Certification:</strong> Assessment verified for mission readiness tracking. Flight Surgeon Review: <span className="text-slate-200">Dr. Gregory Vance, MD (Simulated Operational Persona, NASA JSC)</span>. Does not constitute clinical disease diagnosis.
                 </p>
               </div>
             </motion.div>
@@ -1058,11 +1266,21 @@ export const HealthAssessmentPage: React.FC<HealthAssessmentPageProps> = ({
             ) : (
               <button
                 type="submit"
-                className="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-semibold tracking-wider uppercase transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)] cursor-pointer"
+                disabled={isSubmitting}
+                className="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-black text-xs font-semibold tracking-wider uppercase transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)] cursor-pointer"
                 style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 600 }}
               >
-                <Send className="w-4 h-4" />
-                <span>Submit Assessment &amp; Sync</span>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>SYNCHRONIZING WITH POSTGRESQL...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Submit Assessment &amp; Sync</span>
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -1081,10 +1299,11 @@ export const HealthAssessmentPage: React.FC<HealthAssessmentPageProps> = ({
 
           <div className="space-y-2 max-w-lg mx-auto">
             <span
-              className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+              className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center justify-center gap-1.5 w-fit mx-auto"
               style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 600 }}
             >
-              SIMULATED TELEMETRY UPLINK CONFIRMED
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <span>POSTGRESQL TELEMETRY UPLINK CONFIRMED</span>
             </span>
             <h2
               className="text-2xl sm:text-3xl font-bold text-white tracking-tight pt-2"
@@ -1096,25 +1315,39 @@ export const HealthAssessmentPage: React.FC<HealthAssessmentPageProps> = ({
               className="text-sm text-[#A3A3A3] leading-relaxed font-normal"
               style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 400 }}
             >
-              Your physiological triage, sleep metrics, and mental stamina assessments have been logged into the mission archive. Status is evaluated as <strong className="text-white">Stable</strong>.
+              Your physiological triage, sleep metrics, and mental stamina assessments have been persisted into the mission archive. Status is evaluated as <strong className="text-white">{savedAssessmentRecord?.status || 'OPTIMAL'}</strong>.
             </p>
           </div>
 
           <div
-            className="p-4 rounded-xl bg-[#161616] border border-[#252525] max-w-md mx-auto text-xs text-[#A3A3A3] space-y-1.5"
+            className="p-4 rounded-xl bg-[#161616] border border-[#252525] max-w-md mx-auto text-xs text-[#A3A3A3] space-y-2"
             style={{ fontFamily: "'Manrope', sans-serif" }}
           >
-            <div className="flex justify-between">
-              <span className="font-normal">Assessment ID:</span>
-              <span className="font-mono text-white font-semibold">AST-ASM-20270420-94</span>
+            <div className="flex justify-between items-center">
+              <span className="font-normal text-slate-400">Assessment Record ID:</span>
+              <span className="font-mono text-cyan-400 font-semibold truncate max-w-[220px]" title={savedAssessmentRecord?.id}>
+                {savedAssessmentRecord?.id || 'AST-ASM-DATABASE-UUID'}
+              </span>
             </div>
-            <div className="flex justify-between">
-              <span className="font-normal">Telemetry Timestamp:</span>
-              <span className="font-mono text-white font-semibold">Today, 08:35 UTC</span>
+            <div className="flex justify-between items-center">
+              <span className="font-normal text-slate-400">Database Timestamp:</span>
+              <span className="font-mono text-white font-semibold">
+                {savedAssessmentRecord?.created_at
+                  ? new Date(savedAssessmentRecord.created_at).toUTCString()
+                  : new Date().toUTCString()}
+              </span>
             </div>
-            <div className="flex justify-between">
-              <span className="font-normal">Evaluated Status:</span>
-              <span className="text-emerald-400 font-semibold">Stable (Within Baseline)</span>
+            <div className="flex justify-between items-center">
+              <span className="font-normal text-slate-400">Evaluated Status:</span>
+              <span className={`font-semibold ${savedAssessmentRecord?.status === 'OPTIMAL' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {savedAssessmentRecord?.status || 'OPTIMAL'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-[#252525]/60">
+              <span className="font-normal text-slate-400">Operative UUID:</span>
+              <span className="font-mono text-slate-300 text-[11px] truncate max-w-[220px]" title={savedAssessmentRecord?.astronaut_id}>
+                {savedAssessmentRecord?.astronaut_id || activeAstronautId || 'Resolved'}
+              </span>
             </div>
           </div>
 

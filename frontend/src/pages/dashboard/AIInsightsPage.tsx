@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles,
@@ -14,7 +14,11 @@ import {
   PhoneCall,
   Clock,
   ShieldCheck,
-  Info
+  Info,
+  Activity,
+  Cpu,
+  RefreshCw,
+  UserCheck
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -25,14 +29,103 @@ import {
   Tooltip,
   CartesianGrid
 } from 'recharts';
+import {
+  insightsApi,
+  measurementsApi,
+  astronautsApi,
+  VitalsAnalysisResponse,
+  HealthMeasurementResponse,
+  AstronautResponse
+} from '../../api';
 
 type HealthScenario = 'normal' | 'attention' | 'urgent' | 'multiple' | 'insufficient';
+type ViewMode = 'live' | 'demonstration';
 
-export const AIInsightsPage: React.FC = () => {
+interface AIInsightsPageProps {
+  astronautId?: string;
+}
+
+export const AIInsightsPage: React.FC<AIInsightsPageProps> = ({ astronautId: propAstronautId }) => {
+  // View mode switcher: Live Model Inference vs Interactive Demonstration Scenarios
+  const [viewMode, setViewMode] = useState<ViewMode>('live');
+
+  // Live Model State
+  const [astronaut, setAstronaut] = useState<AstronautResponse | null>(null);
+  const [latestMeasurement, setLatestMeasurement] = useState<HealthMeasurementResponse | null>(null);
+  const [liveAnalysis, setLiveAnalysis] = useState<VitalsAnalysisResponse | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+
   // Scenario switcher for demonstration testing
   const [currentScenario, setCurrentScenario] = useState<HealthScenario>('normal');
   const [showTrendHistory, setShowTrendHistory] = useState<boolean>(false);
   const [activeHistoryMetric, setActiveHistoryMetric] = useState<'hr' | 'o2' | 'sleep' | 'temp'>('hr');
+
+  // Load monitored astronaut and latest measurement
+  const loadLiveData = useCallback(async () => {
+    setIsAnalyzing(true);
+    setLiveError(null);
+    try {
+      let targetId = propAstronautId;
+      if (!targetId) {
+        try {
+          const cached = localStorage.getItem('astra_saved_references');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed.astronautId) targetId = parsed.astronautId;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      const astroList = await astronautsApi.list();
+      const activeAstro = astroList.find(a => a.id === targetId) || astroList[0] || null;
+      setAstronaut(activeAstro);
+
+      if (activeAstro) {
+        const measurements = await measurementsApi.getByAstronaut(activeAstro.id, 0, 1);
+        const latest = measurements[0] || null;
+        setLatestMeasurement(latest);
+
+        if (latest && latest.heart_rate_bpm && latest.blood_oxygen_pct && latest.systolic_bp_mmhg && latest.diastolic_bp_mmhg) {
+          const sbp = latest.systolic_bp_mmhg;
+          const dbp = latest.diastolic_bp_mmhg;
+          const pp = sbp > dbp ? sbp - dbp : undefined;
+          const map = sbp > dbp ? parseFloat((dbp + (sbp - dbp) / 3).toFixed(2)) : undefined;
+
+          const analysis = await insightsApi.analyze({
+            heart_rate_bpm: latest.heart_rate_bpm,
+            spo2_pct: latest.blood_oxygen_pct,
+            systolic_bp_mmhg: sbp,
+            diastolic_bp_mmhg: dbp,
+            pulse_pressure_mmhg: pp,
+            map_mmhg: map
+          });
+          setLiveAnalysis(analysis);
+        } else {
+          // Fallback to nominal baseline parameters if no measurements exist yet
+          const analysis = await insightsApi.analyze({
+            heart_rate_bpm: 72.0,
+            spo2_pct: 98.0,
+            systolic_bp_mmhg: 120.0,
+            diastolic_bp_mmhg: 80.0,
+            pulse_pressure_mmhg: 40.0,
+            map_mmhg: 93.33
+          });
+          setLiveAnalysis(analysis);
+        }
+      }
+    } catch (err: any) {
+      setLiveError(err.message || 'Failed to complete live ML anomaly detection.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [propAstronautId]);
+
+  useEffect(() => {
+    loadLiveData();
+  }, [loadLiveData]);
 
   // Simple, validated historical trends for the expandable section
   const trendHistoryData = {
@@ -123,54 +216,290 @@ export const AIInsightsPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-orbitron tracking-widest text-[#36C9E8] uppercase mb-1">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>EVENT-BASED HEALTH ASSISTANT</span>
+            <span>ISOLATION FOREST ANOMALY SCREENING</span>
           </div>
           <h1 className="font-orbitron text-xl sm:text-2xl font-bold text-white tracking-wide">
             AI HEALTH INSIGHTS
           </h1>
           <p className="text-xs sm:text-sm text-[#A3A3A3] mt-1 font-space">
-            Understand important changes in your health.
+            Multivariable physiological anomaly detection and clinical event telemetry.
           </p>
         </div>
 
-        {/* Interactive Scenario Switcher for Verification & Review */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl bg-[#161616] border border-[#252525] text-xs font-space self-start sm:self-auto">
-          <span className="text-[10px] text-[#737373] px-2 font-mono uppercase">Scenario:</span>
-          {(
-            [
-              { id: 'normal', label: '1. Normal' },
-              { id: 'attention', label: '2. Attention' },
-              { id: 'urgent', label: '3. Urgent' },
-              { id: 'multiple', label: 'Multiple' },
-              { id: 'insufficient', label: 'Insufficient' }
-            ] as const
-          ).map(scenario => (
-            <button
-              key={scenario.id}
-              onClick={() => setCurrentScenario(scenario.id)}
-              className={`px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer ${currentScenario === scenario.id
-                  ? 'bg-[#111111] text-[#36C9E8] font-bold border border-[#36C9E8]/40 shadow-sm'
-                  : 'text-[#A3A3A3] hover:text-white'
-                }`}
-            >
-              {scenario.label}
-            </button>
-          ))}
+        {/* View Mode Selector */}
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#161616] border border-[#252525] text-xs font-space self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setViewMode('live')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+              viewMode === 'live'
+                ? 'bg-[#36C9E8] text-black shadow-sm'
+                : 'text-[#A3A3A3] hover:text-white'
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Live ML Model</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('demonstration')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+              viewMode === 'demonstration'
+                ? 'bg-[#36C9E8] text-black shadow-sm'
+                : 'text-[#A3A3A3] hover:text-white'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>Case Scenarios</span>
+          </button>
         </div>
       </div>
 
-      {/* SIMULATED DATA & SAFETY DISCLAIMER BANNER */}
-      <div className="p-3.5 rounded-xl bg-[#111111] border border-[#252525] flex items-center justify-between text-xs text-[#A3A3A3] font-space">
-        <div className="flex items-center gap-2.5">
-          <Info className="w-4 h-4 text-[#36C9E8] shrink-0" />
-          <span>
-            <strong className="text-white font-medium">Demonstration Health Assistant:</strong> Notifications reflect event-based detection logic. Demonstrations do not diagnose medical conditions.
-          </span>
+      {/* LIVE MODEL INFERENCE VIEW */}
+      {viewMode === 'live' && (
+        <div className="space-y-6">
+          {/* Active Operative & Telemetry Source Bar */}
+          <div className="p-4 rounded-xl bg-[#0D0D0D] border border-[#252525] flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-space">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-[#161616] border border-[#252525] text-[#36C9E8]">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-white">
+                  {astronaut?.name || 'Cmdr. Sarah Vance'} ({astronaut?.crew_id || 'AST-7824'})
+                </div>
+                <div className="text-[11px] text-[#888888] font-mono mt-0.5">
+                  Latest Telemetry:{' '}
+                  <span className="text-[#36C9E8]">
+                    {latestMeasurement?.source || 'Baseline Resting Envelope'}
+                  </span>{' '}
+                  •{' '}
+                  {latestMeasurement
+                    ? new Date(latestMeasurement.measured_at).toLocaleString()
+                    : 'Calibrated Orbit'}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={isAnalyzing}
+              onClick={loadLiveData}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#161616] hover:bg-[#202020] border border-[#333333] text-xs font-semibold text-white transition-colors cursor-pointer self-start sm:self-auto disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-[#36C9E8] ${isAnalyzing ? 'animate-spin' : ''}`} />
+              <span>{isAnalyzing ? 'Evaluating...' : 'Re-Run Anomaly Screen'}</span>
+            </button>
+          </div>
+
+          {/* Live Inference Error Banner */}
+          {liveError && (
+            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center gap-3 text-xs font-space">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <span>{liveError}</span>
+            </div>
+          )}
+
+          {/* Model Prediction Outcome Card */}
+          {liveAnalysis && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`p-6 sm:p-8 rounded-2xl bg-[#111111] border space-y-6 ${
+                liveAnalysis.is_anomaly ? 'border-amber-500/40 shadow-lg shadow-amber-500/5' : 'border-emerald-500/30 shadow-lg shadow-emerald-500/5'
+              }`}
+            >
+              {/* Top Status Strip */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#222222]">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                      liveAnalysis.is_anomaly
+                        ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+                        : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+                    }`}
+                  >
+                    {liveAnalysis.is_anomaly ? (
+                      <AlertTriangle className="w-6 h-6" />
+                    ) : (
+                      <CheckCircle2 className="w-6 h-6" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-orbitron font-bold text-lg text-white">
+                        {liveAnalysis.is_anomaly ? 'Statistical Anomaly Flagged' : 'Nominal Telemetry Pattern'}
+                      </h2>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
+                          liveAnalysis.severity === 'nominal'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                            : liveAnalysis.severity === 'mild_anomaly'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                        }`}
+                      >
+                        {liveAnalysis.severity.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#A3A3A3] font-space mt-1">
+                      {liveAnalysis.summary_message}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-right">
+                  <div className="px-3 py-1.5 rounded-lg bg-[#161616] border border-[#252525] font-space text-xs">
+                    <span className="text-[10px] text-[#888888] block">DECISION SCORE</span>
+                    <span className="font-mono font-bold text-white">
+                      {liveAnalysis.decision_score > 0 ? `+${liveAnalysis.decision_score}` : liveAnalysis.decision_score}
+                    </span>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-lg bg-[#161616] border border-[#252525] font-space text-xs">
+                    <span className="text-[10px] text-[#888888] block">ANOMALY INDEX</span>
+                    <span
+                      className={`font-mono font-bold ${
+                        liveAnalysis.normalized_anomaly_score > 0.45 ? 'text-amber-400' : 'text-emerald-400'
+                      }`}
+                    >
+                      {(liveAnalysis.normalized_anomaly_score * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 6-Feature Normative Baseline Comparison Table */}
+              {liveAnalysis.baseline_comparison && (
+                <div className="space-y-3 font-space">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-orbitron font-semibold uppercase text-slate-200 tracking-wider">
+                      Evaluated 6-Feature Physiological Vector
+                    </span>
+                    <span className="text-[11px] text-[#888888] font-mono">
+                      Baseline Cohort: PhysioNet Pulse Transit Time (v1.1.0)
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-[#222222] bg-[#0E0E0E]">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-[#222222] text-[#888888] text-[10px] font-mono uppercase bg-[#141414]">
+                          <th className="py-2.5 px-3">Physiological Feature</th>
+                          <th className="py-2.5 px-3">Observed Value</th>
+                          <th className="py-2.5 px-3">Baseline Mean ± Std</th>
+                          <th className="py-2.5 px-3">Z-Score Deviation</th>
+                          <th className="py-2.5 px-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#1A1A1A]">
+                        {Object.entries(liveAnalysis.baseline_comparison).map(([key, stat]) => {
+                          const labelMap: Record<string, string> = {
+                            heart_rate_bpm: 'Heart Rate (BPM)',
+                            spo2_pct: 'Blood Oxygen (SpO2 %)',
+                            systolic_bp_mmhg: 'Systolic BP (mmHg)',
+                            diastolic_bp_mmhg: 'Diastolic BP (mmHg)',
+                            pulse_pressure_mmhg: 'Pulse Pressure (mmHg)',
+                            map_mmhg: 'Mean Arterial Pressure (mmHg)'
+                          };
+                          const isDeviant = Math.abs(stat.z_score) >= 2.0;
+
+                          return (
+                            <tr key={key} className="hover:bg-[#161616] transition-colors">
+                              <td className="py-2.5 px-3 font-semibold text-white">
+                                {labelMap[key] || key}
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-[#36C9E8] font-medium">
+                                {stat.observed_value}
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-[#A3A3A3] text-[11px]">
+                                {stat.baseline_mean.toFixed(1)} ± {stat.baseline_std.toFixed(1)}
+                              </td>
+                              <td className="py-2.5 px-3 font-mono">
+                                <span
+                                  className={
+                                    isDeviant
+                                      ? 'text-amber-400 font-bold'
+                                      : 'text-slate-300'
+                                  }
+                                >
+                                  {stat.z_score >= 0 ? `+${stat.z_score.toFixed(2)}` : stat.z_score.toFixed(2)} σ
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-[10px]">
+                                {isDeviant ? (
+                                  <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                                    DEVIANT
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                    WITHIN BOUNDS
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Regulatory & Safety Disclaimers */}
+              <div className="pt-2 border-t border-[#1C1C1C] text-[11px] text-[#737373] font-space flex items-start gap-2 italic">
+                <Info className="w-4 h-4 text-[#36C9E8] shrink-0 mt-0.5" />
+                <span>{liveAnalysis.disclaimer}</span>
+              </div>
+            </motion.div>
+          )}
         </div>
-        <span className="px-2 py-0.5 rounded bg-[#161616] text-[#36C9E8] border border-[#252525] font-mono text-[10px] shrink-0 hidden sm:inline">
-          SIMULATED EVENTS
-        </span>
-      </div>
+      )}
+
+      {/* DEMONSTRATION CASE SCENARIOS VIEW */}
+      {viewMode === 'demonstration' && (
+        <>
+          {/* Interactive Scenario Switcher for Verification & Review */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-[#111111] border border-[#252525] text-xs font-space">
+            <span className="text-[11px] text-[#A3A3A3] font-orbitron uppercase">
+              Aerospace Test Scenarios:
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(
+                [
+                  { id: 'normal', label: '1. Normal' },
+                  { id: 'attention', label: '2. Attention' },
+                  { id: 'urgent', label: '3. Urgent' },
+                  { id: 'multiple', label: 'Multiple' },
+                  { id: 'insufficient', label: 'Insufficient' }
+                ] as const
+              ).map(scenario => (
+                <button
+                  key={scenario.id}
+                  onClick={() => setCurrentScenario(scenario.id)}
+                  className={`px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer ${
+                    currentScenario === scenario.id
+                      ? 'bg-[#161616] text-[#36C9E8] font-bold border border-[#36C9E8]/40 shadow-sm'
+                      : 'text-[#A3A3A3] hover:text-white'
+                  }`}
+                >
+                  {scenario.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* SIMULATED DATA & SAFETY DISCLAIMER BANNER */}
+          <div className="p-3.5 rounded-xl bg-[#111111] border border-[#252525] flex items-center justify-between text-xs text-[#A3A3A3] font-space">
+            <div className="flex items-center gap-2.5">
+              <Info className="w-4 h-4 text-[#36C9E8] shrink-0" />
+              <span>
+                <strong className="text-white font-medium">Demonstration Health Assistant:</strong> Notifications reflect event-based detection logic. Demonstrations do not diagnose medical conditions.
+              </span>
+            </div>
+            <span className="px-2 py-0.5 rounded bg-[#161616] text-[#36C9E8] border border-[#252525] font-mono text-[10px] shrink-0 hidden sm:inline">
+              SIMULATED EVENTS
+            </span>
+          </div>
 
       {/* 2. MAIN AI STATUS AREA & EVENT DETAILS */}
 
@@ -498,6 +827,8 @@ export const AIInsightsPage: React.FC = () => {
             Sensors Calibrating: Heart Rate, SpO2, Core Temp • Minimum baseline requirement: 24 hours.
           </div>
         </motion.div>
+      )}
+      </>
       )}
 
       {/* 3. HEALTH TREND HISTORY (Secondary, Expandable Section per Requirement 4) */}

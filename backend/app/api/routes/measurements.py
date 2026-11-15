@@ -32,6 +32,28 @@ def create_measurement(data: HealthMeasurementCreate, db: Session = Depends(get_
     return HealthMeasurementService.create(db, data)
 
 
+@router.post(
+    "/batch",
+    response_model=List[HealthMeasurementResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Batch Save Health Measurements",
+    description="Logs multiple physiological telemetry readings in a single atomic transaction.",
+)
+def create_measurements_batch(items: List[HealthMeasurementCreate], db: Session = Depends(get_db)):
+    if not items:
+        return []
+    # Verify astronaut existence for first item (or distinct astronaut IDs)
+    distinct_astro_ids = {item.astronaut_id for item in items}
+    for astro_id in distinct_astro_ids:
+        astronaut = AstronautService.get_by_id(db, astro_id)
+        if not astronaut:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Astronaut with ID '{astro_id}' does not exist.",
+            )
+    return HealthMeasurementService.create_batch(db, items)
+
+
 @router.get(
     "/",
     response_model=List[HealthMeasurementResponse],

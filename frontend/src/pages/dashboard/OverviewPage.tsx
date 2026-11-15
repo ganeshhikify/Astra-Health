@@ -11,34 +11,90 @@ import {
   Droplets,
   Thermometer,
   Clock,
-  Info
+  Info,
+  Database
 } from 'lucide-react';
 import { DashboardRoute } from '../../layouts/DashboardLayout';
+import { measurementsApi } from '../../api/measurementsApi';
+import { astronautsApi } from '../../api/astronautsApi';
+import { HealthMeasurementResponse } from '../../api/types';
 
 interface OverviewPageProps {
   onNavigate: (route: DashboardRoute) => void;
   onOpenAssessment?: () => void;
+  astronautId?: string | null;
 }
 
 export const OverviewPage: React.FC<OverviewPageProps> = ({
-  onNavigate
+  onNavigate,
+  astronautId: propAstronautId
 }) => {
-  const profile = React.useMemo(() => {
+  const [profile, setProfile] = React.useState({
+    astronautName: 'Cmdr. Sarah Vance',
+    crewId: 'AST-7824',
+    astronautRole: 'Mission Commander',
+    missionName: 'Astra Artemis VII',
+    destination: 'MOON',
+    missionDuration: '180 Days'
+  });
+  const [latestTelemetry, setLatestTelemetry] = React.useState<HealthMeasurementResponse | null>(null);
+  const [_isLoadingTelemetry, setIsLoadingTelemetry] = React.useState<boolean>(true);
+
+  React.useEffect(() => {
+    let isMounted = true;
     try {
       const saved = localStorage.getItem('astra_mission_setup_draft');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setProfile(prev => ({ ...prev, ...parsed }));
+      }
     } catch {
       // fallback
     }
-    return {
-      astronautName: 'Cmdr. Sarah Vance',
-      crewId: 'AST-7824',
-      astronautRole: 'Mission Commander',
-      missionName: 'Astra Artemis VII',
-      destination: 'MOON',
-      missionDuration: '180 Days'
+
+    const loadLatestTelemetry = async () => {
+      try {
+        let targetAstroId = propAstronautId;
+        if (!targetAstroId) {
+          try {
+            const activeRefsStr = localStorage.getItem('astra_active_refs');
+            if (activeRefsStr) {
+              const parsed = JSON.parse(activeRefsStr);
+              if (parsed.astronautId) targetAstroId = parsed.astronautId;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        const astroList = await astronautsApi.list();
+        const activeAstro = astroList.find(a => a.id === targetAstroId) || astroList[0];
+        if (activeAstro && isMounted) {
+          setProfile(prev => ({
+            ...prev,
+            astronautName: activeAstro.name,
+            crewId: activeAstro.crew_id,
+            astronautRole: activeAstro.role || prev.astronautRole
+          }));
+
+          const measurements = await measurementsApi.getByAstronaut(activeAstro.id, 0, 1);
+          if (measurements && measurements.length > 0 && isMounted) {
+            setLatestTelemetry(measurements[0]);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load latest telemetry:', err);
+      } finally {
+        if (isMounted) setIsLoadingTelemetry(false);
+      }
     };
-  }, []);
+
+    loadLatestTelemetry();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [propAstronautId]);
 
   // Demonstration Data (Strictly labelled as simulated measurements)
   const healthData = {
@@ -105,6 +161,34 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
     ]
   };
 
+  // Operational Telemetry vs Simulated Demonstration Data
+  const isLive = !!latestTelemetry;
+  const hrVal = latestTelemetry?.heart_rate_bpm ?? healthData.heartRate.value;
+  const hrTime = latestTelemetry
+    ? new Date(latestTelemetry.measured_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC'
+    : healthData.heartRate.lastMeasuredTime;
+
+  const o2Val = latestTelemetry?.blood_oxygen_pct ?? healthData.bloodOxygen.value;
+  const o2Time = latestTelemetry
+    ? new Date(latestTelemetry.measured_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC'
+    : healthData.bloodOxygen.lastMeasuredTime;
+
+  const tempVal = latestTelemetry?.body_temperature_celsius ?? healthData.bodyTemperature.value;
+  const tempFahr = latestTelemetry?.body_temperature_celsius
+    ? `${((latestTelemetry.body_temperature_celsius * 9) / 5 + 32).toFixed(1)}°F`
+    : healthData.bodyTemperature.fahrenheit;
+  const tempTime = latestTelemetry
+    ? new Date(latestTelemetry.measured_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC'
+    : healthData.bodyTemperature.lastMeasuredTime;
+
+  const bpSys = latestTelemetry?.systolic_bp_mmhg ?? healthData.bloodPressure.systolic;
+  const bpDia = latestTelemetry?.diastolic_bp_mmhg ?? healthData.bloodPressure.diastolic;
+  const bpTime = latestTelemetry
+    ? new Date(latestTelemetry.measured_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC'
+    : healthData.bloodPressure.lastMeasuredTime;
+
+  const sourceBadge = isLive ? `Operational (${latestTelemetry?.source || 'telemetry'})` : 'Simulated';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -149,16 +233,28 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
         </div>
       </div>
 
-      {/* SIMULATED DATA PROMINENT DISCLAIMER */}
+      {/* DISCLAIMER / TELEMETRY SOURCE BANNER */}
       <div className="p-3.5 rounded-xl bg-[#111111] border border-[#252525] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#A3A3A3] font-space">
         <div className="flex items-center gap-2.5">
           <Info className="w-4 h-4 text-[#36C9E8] shrink-0" />
           <span>
-            <strong className="text-white font-medium">Demonstration Health Telemetry:</strong> All vital signs and telemetry metrics below are demonstration simulated data for aerospace prototype evaluation.
+            {isLive ? (
+              <>
+                <strong className="text-white font-medium">Operational Telemetry Ingested:</strong> Displaying latest verified telemetry record for {profile.astronautName} (Source: <span className="text-[#36C9E8] font-mono capitalize">{latestTelemetry?.source}</span>). Ingested telemetry supports operational readiness; does not constitute automated clinical diagnosis.
+              </>
+            ) : (
+              <>
+                <strong className="text-white font-medium">Demonstration Health Telemetry:</strong> All vital signs and telemetry metrics below are demonstration simulated data for aerospace prototype evaluation.
+              </>
+            )}
           </span>
         </div>
-        <span className="px-2.5 py-1 rounded bg-[#161616] border border-[#252525] text-[#36C9E8] font-mono text-[10px] font-semibold tracking-wider self-start sm:self-auto shrink-0">
-          SIMULATED MEASUREMENTS
+        <span
+          className={`px-2.5 py-1 rounded bg-[#161616] border font-mono text-[10px] font-semibold tracking-wider self-start sm:self-auto shrink-0 ${
+            isLive ? 'border-emerald-500/40 text-emerald-400' : 'border-[#252525] text-[#36C9E8]'
+          }`}
+        >
+          {isLive ? `OPERATIONAL (${(latestTelemetry?.source || 'telemetry').toUpperCase()})` : 'SIMULATED MEASUREMENTS'}
         </span>
       </div>
 
@@ -169,12 +265,18 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
             <h2 className="font-orbitron text-xs font-bold tracking-wider text-white uppercase">
               Vital Signs Telemetry
             </h2>
-            <span className="px-2 py-0.5 rounded text-[9px] font-mono font-semibold bg-white/5 border border-white/10 text-cyan-300">
-              SIMULATED DATA
+            <span
+              className={`px-2 py-0.5 rounded text-[9px] font-mono font-semibold ${
+                isLive
+                  ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+                  : 'bg-white/5 border border-white/10 text-cyan-300'
+              }`}
+            >
+              {isLive ? 'LIVE OPERATIONAL FEED' : 'SIMULATED DATA'}
             </span>
           </div>
           <span className="text-[11px] text-[#A3A3A3] font-mono hidden sm:inline">
-            Telemetry Feed: 1 Hz Synchronized
+            {isLive ? `Latest Record: ${hrTime}` : 'Telemetry Feed: 1 Hz Synchronized'}
           </span>
         </div>
 
@@ -198,7 +300,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               <div className="flex items-baseline justify-between mb-2">
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-orbitron text-3xl font-extrabold text-white">
-                    {healthData.heartRate.value}
+                    {hrVal}
                   </span>
                   <span className="text-xs text-[#A3A3A3] font-mono">
                     {healthData.heartRate.unit}
@@ -227,10 +329,10 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
             <div className="pt-2 border-t border-[#1C1C1C] mt-2 flex items-center justify-between text-[10px] text-[#A3A3A3] font-space">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-[#737373]" />
-                <span>{healthData.heartRate.lastMeasuredTime}</span>
+                <span>{hrTime}</span>
               </span>
-              <span className="px-1.5 py-0.5 rounded bg-[#161616] text-slate-400 font-mono text-[9px]">
-                Simulated
+              <span className="px-1.5 py-0.5 rounded bg-[#161616] text-slate-400 font-mono text-[9px] capitalize">
+                {sourceBadge}
               </span>
             </div>
           </div>
@@ -249,7 +351,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               <div className="flex items-baseline justify-between mb-2">
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-orbitron text-3xl font-extrabold text-white">
-                    {healthData.bloodOxygen.value}
+                    {o2Val}
                   </span>
                   <span className="text-xs text-[#A3A3A3] font-mono">
                     {healthData.bloodOxygen.unit}
@@ -265,7 +367,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               <div className="w-full h-2 rounded-full bg-[#161616] overflow-hidden mt-3">
                 <div
                   className="h-full bg-gradient-to-r from-cyan-600 to-[#36C9E8] rounded-full"
-                  style={{ width: `${healthData.bloodOxygen.value}%` }}
+                  style={{ width: `${Math.min(100, Math.max(0, o2Val))}%` }}
                 />
               </div>
               <div className="mt-3 text-[10px] text-[#A3A3A3] flex justify-between font-space">
@@ -277,10 +379,10 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
             <div className="pt-2 border-t border-[#1C1C1C] mt-2 flex items-center justify-between text-[10px] text-[#A3A3A3] font-space">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-[#737373]" />
-                <span>{healthData.bloodOxygen.lastMeasuredTime}</span>
+                <span>{o2Time}</span>
               </span>
-              <span className="px-1.5 py-0.5 rounded bg-[#161616] text-slate-400 font-mono text-[9px]">
-                Simulated
+              <span className="px-1.5 py-0.5 rounded bg-[#161616] text-slate-400 font-mono text-[9px] capitalize">
+                {sourceBadge}
               </span>
             </div>
           </div>
@@ -299,14 +401,14 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               <div className="flex items-baseline justify-between mb-2">
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-orbitron text-3xl font-extrabold text-white">
-                    {healthData.bodyTemperature.value}
+                    {tempVal}
                   </span>
                   <span className="text-xs text-[#A3A3A3] font-mono">
                     {healthData.bodyTemperature.unit}
                   </span>
                 </div>
                 <span className="text-[11px] text-[#A3A3A3] font-mono">
-                  {healthData.bodyTemperature.fahrenheit}
+                  {tempFahr}
                 </span>
               </div>
 
@@ -324,10 +426,10 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
             <div className="pt-2 border-t border-[#1C1C1C] mt-2 flex items-center justify-between text-[10px] text-[#A3A3A3] font-space">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-[#737373]" />
-                <span>{healthData.bodyTemperature.lastMeasuredTime}</span>
+                <span>{tempTime}</span>
               </span>
-              <span className="px-1.5 py-0.5 rounded bg-[#161616] text-slate-400 font-mono text-[9px]">
-                Simulated
+              <span className="px-1.5 py-0.5 rounded bg-[#161616] text-slate-400 font-mono text-[9px] capitalize">
+                {sourceBadge}
               </span>
             </div>
           </div>
@@ -346,7 +448,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               <div className="flex items-baseline justify-between mb-2">
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-orbitron text-3xl font-extrabold text-white">
-                    {healthData.bloodPressure.systolic}/{healthData.bloodPressure.diastolic}
+                    {bpSys}/{bpDia}
                   </span>
                   <span className="text-xs text-[#A3A3A3] font-mono">
                     {healthData.bloodPressure.unit}
@@ -364,14 +466,14 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                   <div className="flex-1 h-1.5 rounded-full bg-[#161616] overflow-hidden">
                     <div className="h-full bg-white rounded-full" style={{ width: '60%' }} />
                   </div>
-                  <span className="font-mono text-white">{healthData.bloodPressure.systolic}</span>
+                  <span className="font-mono text-white">{bpSys}</span>
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-[#A3A3A3]">
                   <span className="w-8 font-semibold text-slate-300">DIA</span>
                   <div className="flex-1 h-1.5 rounded-full bg-[#161616] overflow-hidden">
                     <div className="h-full bg-[#36C9E8] rounded-full" style={{ width: '40%' }} />
                   </div>
-                  <span className="font-mono text-white">{healthData.bloodPressure.diastolic}</span>
+                  <span className="font-mono text-white">{bpDia}</span>
                 </div>
               </div>
             </div>
@@ -379,10 +481,10 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
             <div className="pt-2 border-t border-[#1C1C1C] mt-2 flex items-center justify-between text-[10px] text-[#A3A3A3] font-space">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-[#737373]" />
-                <span>{healthData.bloodPressure.lastMeasuredTime}</span>
+                <span>{bpTime}</span>
               </span>
-              <span className="px-1.5 py-0.5 rounded bg-[#161616] text-slate-400 font-mono text-[9px]">
-                Simulated
+              <span className="px-1.5 py-0.5 rounded bg-[#161616] text-slate-400 font-mono text-[9px] capitalize">
+                {sourceBadge}
               </span>
             </div>
           </div>
@@ -449,8 +551,8 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
         </div>
       </div>
 
-      {/* 4. QUICK JUMP PANELS: ANALYTICS, WELLNESS, AI INSIGHTS (Preserved) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* 4. QUICK JUMP PANELS: ANALYTICS, WELLNESS, AI INSIGHTS, RESEARCH (Preserved & Extended) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Analytics Card */}
         <div 
@@ -517,6 +619,29 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
           </div>
           <div className="mt-4 pt-3 border-t border-[#252525] flex items-center justify-between text-xs text-[#36C9E8] font-space">
             <span>Explore AI Findings</span>
+            <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
+          </div>
+        </div>
+
+        {/* Scientific Research Datasets Card */}
+        <div
+          onClick={() => onNavigate('analytics')}
+          className="p-5 rounded-xl bg-[#111111] border border-[#252525] hover:border-cyan-400/50 transition-all cursor-pointer group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <Database className="w-5 h-5 text-cyan-400" />
+              <span className="text-[10px] font-mono text-cyan-400">4 STUDIES • 1,212 COHORT</span>
+            </div>
+            <h4 className="font-orbitron text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">
+              Scientific Research
+            </h4>
+            <p className="text-xs text-[#A3A3A3] mt-1.5 leading-relaxed font-space">
+              PhysioNet ICU oxygenation, NASA Inspiration4 spaceflight omics, FitBit countermeasures, and autonomic aging benchmarks.
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-[#252525] flex items-center justify-between text-xs text-cyan-400 font-space">
+            <span>Explore Research Data</span>
             <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
           </div>
         </div>

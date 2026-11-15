@@ -103,3 +103,44 @@ def test_measurement_validation_errors(client: TestClient):
     # Non-existent measurement ID
     fake_m_id = str(uuid.uuid4())
     assert client.get(f"/api/v1/measurements/{fake_m_id}").status_code == 404
+
+
+def test_create_measurements_batch(client: TestClient):
+    """Test batch logging of multiple health measurements."""
+    astro = client.post("/api/v1/astronauts/", json={
+        "name": "Dr. Batch Subject",
+        "crew_id": "AST-BATCH-01"
+    }).json()
+
+    now = datetime.now(timezone.utc)
+    batch_payload = [
+        {
+            "astronaut_id": astro["id"],
+            "measured_at": (now - timedelta(hours=1)).isoformat(),
+            "heart_rate_bpm": 70.0,
+            "blood_oxygen_pct": 98.5,
+            "body_temperature_celsius": 36.7,
+            "systolic_bp_mmhg": 118,
+            "diastolic_bp_mmhg": 78,
+            "source": "manual",
+            "is_simulated": False
+        },
+        {
+            "astronaut_id": astro["id"],
+            "measured_at": now.isoformat(),
+            "heart_rate_bpm": 74.0,
+            "blood_oxygen_pct": 98.0,
+            "body_temperature_celsius": 36.8,
+            "systolic_bp_mmhg": 120,
+            "diastolic_bp_mmhg": 80,
+            "source": "uploaded",
+            "is_simulated": False
+        }
+    ]
+
+    res = client.post("/api/v1/measurements/batch", json=batch_payload)
+    assert res.status_code == 201
+    records = res.json()
+    assert len(records) == 2
+    assert records[0]["source"] == "manual"
+    assert records[1]["source"] == "uploaded"
